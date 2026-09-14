@@ -1,37 +1,50 @@
 "use client";
 
-import { useWallet } from "@/hooks/use-wallet";
-import * as DropdownMenu from "@radix-ui/react-dropdown-menu";
-import { Copy, ExternalLink, LogOut, Loader2 } from "lucide-react";
 import { useState } from "react";
+import * as DropdownMenu from "@radix-ui/react-dropdown-menu";
+import {
+  Copy,
+  Check,
+  ExternalLink,
+  LogOut,
+  ChevronDown,
+  Loader2,
+  Wallet,
+} from "lucide-react";
+import { clsx } from "clsx";
+import { useWallet } from "@/hooks/use-wallet";
+import { shortenAddress, STELLAR_NETWORK } from "@/lib/stellar";
+
+function explorerUrl(address: string): string {
+  const net = (STELLAR_NETWORK as string).toLowerCase();
+  return `https://stellar.expert/explorer/${net}/account/${address}`;
+}
 
 export function WalletButton() {
   const { address, isConnecting, connect, disconnect } = useWallet();
   const [copied, setCopied] = useState(false);
 
-  const formatAddress = (addr: string) => {
-    return `${addr.slice(0, 4)}...${addr.slice(-4)}`;
-  };
-
-  const copyToClipboard = async () => {
+  async function copyAddress() {
     if (!address) return;
     try {
       await navigator.clipboard.writeText(address);
       setCopied(true);
-      setTimeout(() => setCopied(false), 2000);
-    } catch (err) {
-      console.error("Failed to copy address", err);
+      setTimeout(() => setCopied(false), 1500);
+    } catch {
+      /* clipboard unavailable */
     }
-  };
+  }
 
   if (isConnecting) {
     return (
       <button
+        type="button"
         disabled
-        className="flex items-center space-x-2 px-4 py-2 bg-gray-100 text-gray-700 rounded-md font-medium text-sm"
+        className="inline-flex items-center gap-2 text-sm font-medium text-brand-700 bg-brand-50 px-3 py-1.5 rounded-lg"
+        data-testid="wallet-connecting"
       >
         <Loader2 className="w-4 h-4 animate-spin" />
-        <span>Connecting...</span>
+        Connecting...
       </button>
     );
   }
@@ -39,9 +52,12 @@ export function WalletButton() {
   if (!address) {
     return (
       <button
+        type="button"
         onClick={connect}
-        className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-md font-medium text-sm transition-colors"
+        className="inline-flex items-center gap-2 text-sm font-medium text-white bg-brand-600 hover:bg-brand-700 px-3 py-1.5 rounded-lg transition-colors"
+        data-testid="wallet-connect-btn"
       >
+        <Wallet className="w-4 h-4" />
         Connect Wallet
       </button>
     );
@@ -50,49 +66,71 @@ export function WalletButton() {
   return (
     <DropdownMenu.Root>
       <DropdownMenu.Trigger asChild>
-        <button className="flex items-center space-x-2 px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-900 rounded-md font-medium text-sm transition-colors">
-          <span className="w-2 h-2 bg-green-500 rounded-full" />
-          <span>{formatAddress(address)}</span>
+        <button
+          type="button"
+          className="inline-flex items-center gap-2 text-sm font-medium text-gray-700 bg-white border border-gray-200 hover:bg-gray-50 px-3 py-1.5 rounded-lg transition-colors"
+          data-testid="wallet-connected-btn"
+        >
+          <span className="w-2 h-2 rounded-full bg-green-500" />
+          <span className="font-mono">{shortenAddress(address)}</span>
+          <ChevronDown className="w-3.5 h-3.5 text-gray-400" />
         </button>
       </DropdownMenu.Trigger>
-
       <DropdownMenu.Portal>
         <DropdownMenu.Content
-          className="min-w-[220px] bg-white rounded-md p-1 shadow-lg border border-gray-200 z-50 text-sm animate-in fade-in-80 zoom-in-95 data-[side=bottom]:slide-in-from-top-2 mt-2"
           align="end"
-          sideOffset={5}
+          sideOffset={6}
+          className={clsx(
+            "z-50 min-w-[16rem] bg-white border border-gray-200 rounded-lg shadow-lg p-1"
+          )}
         >
-          <div className="px-3 py-2 border-b border-gray-100 mb-1 flex items-center justify-between">
-            <span className="text-gray-500 text-xs truncate max-w-[150px]">{address}</span>
-            <button
-              onClick={copyToClipboard}
-              className="p-1 hover:bg-gray-100 rounded text-gray-500 transition-colors"
-              title="Copy address"
-            >
-              <Copy className="w-3.5 h-3.5" />
-            </button>
+          <div className="px-3 py-2">
+            <p className="text-xs text-gray-400 mb-1">Connected account</p>
+            <div className="flex items-center justify-between gap-2">
+              <span
+                className="text-sm font-mono text-gray-700 break-all"
+                data-testid="wallet-full-address"
+              >
+                {address}
+              </span>
+              <button
+                type="button"
+                onClick={copyAddress}
+                className="text-gray-400 hover:text-gray-600 p-1 rounded hover:bg-gray-100 shrink-0"
+                data-testid="wallet-copy-btn"
+                aria-label="Copy address"
+              >
+                {copied ? (
+                  <Check className="w-4 h-4 text-green-500" />
+                ) : (
+                  <Copy className="w-4 h-4" />
+                )}
+              </button>
+            </div>
           </div>
-          
+          <DropdownMenu.Separator className="h-px bg-gray-100 my-1" />
           <DropdownMenu.Item asChild>
             <a
-              href={`https://stellar.expert/explorer/testnet/account/${address}`}
+              href={explorerUrl(address)}
               target="_blank"
               rel="noopener noreferrer"
-              className="flex items-center px-3 py-2 text-gray-700 hover:bg-gray-100 rounded cursor-pointer outline-none"
+              className="flex items-center gap-2 px-3 py-2 text-sm text-gray-700 hover:bg-gray-50 rounded cursor-pointer outline-none"
+              data-testid="wallet-explorer-link"
             >
-              <ExternalLink className="w-4 h-4 mr-2 text-gray-500" />
+              <ExternalLink className="w-4 h-4 text-gray-400" />
               View on Stellar Explorer
             </a>
           </DropdownMenu.Item>
-          
-          <DropdownMenu.Separator className="h-px bg-gray-100 my-1" />
-          
-          <DropdownMenu.Item
-            onClick={disconnect}
-            className="flex items-center px-3 py-2 text-red-600 hover:bg-red-50 rounded cursor-pointer outline-none"
-          >
-            <LogOut className="w-4 h-4 mr-2" />
-            Disconnect
+          <DropdownMenu.Item asChild>
+            <button
+              type="button"
+              onClick={disconnect}
+              className="flex items-center gap-2 px-3 py-2 text-sm text-red-600 hover:bg-red-50 rounded cursor-pointer outline-none w-full text-left"
+              data-testid="wallet-disconnect-btn"
+            >
+              <LogOut className="w-4 h-4" />
+              Disconnect
+            </button>
           </DropdownMenu.Item>
         </DropdownMenu.Content>
       </DropdownMenu.Portal>
